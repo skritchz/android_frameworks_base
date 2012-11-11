@@ -30,6 +30,12 @@
 
 namespace android {
 
+#ifdef QCOM_HARDWARE
+static const int QOMX_COLOR_FormatYUV420PackedSemiPlanar64x32Tile2m8ka = 0x7FA30C03;
+static const int OMX_QCOM_COLOR_FormatYVU420SemiPlanar = 0x7FA30C00;
+#endif
+
+
 SoftwareRenderer::SoftwareRenderer(
         const sp<ANativeWindow> &nativeWindow, const sp<MetaData> &meta)
     : mConverter(NULL),
@@ -69,6 +75,17 @@ SoftwareRenderer::SoftwareRenderer(
             halFormat = HAL_PIXEL_FORMAT_YV12;
             bufWidth = (mCropWidth + 1) & ~1;
             bufHeight = (mCropHeight + 1) & ~1;
+            break;
+        }
+#endif
+
+#ifdef QCOM_LEGACY_OMX
+        case OMX_QCOM_COLOR_FormatYVU420SemiPlanar:
+        {
+            halFormat = HAL_PIXEL_FORMAT_YCrCb_420_SP;
+            bufWidth = (mCropWidth + 1) & ~1;
+            bufHeight = (mCropHeight + 1) & ~1;
+            mAlign = ((mWidth + 15) & -16) * ((mHeight + 15) & -16);
             break;
         }
 #endif
@@ -200,6 +217,20 @@ void SoftwareRenderer::render(
             dst_u += dst_c_stride;
             dst_v += dst_c_stride;
         }
+#ifdef QCOM_LEGACY_OMX
+    } else if (mColorFormat == OMX_QCOM_COLOR_FormatYVU420SemiPlanar) {
+        // Legacy Qualcomm color format
+
+        uint8_t *src_y = (uint8_t *)data;
+        uint8_t *src_u = src_y + mAlign;
+        uint8_t *dst_y = (uint8_t *)dst;
+        uint8_t *dst_u = dst_y + buf->stride * buf->height;
+
+        // Legacy codec doesn't return crop params. Ignore it for speedup :)
+        memcpy(dst_y, src_y, mCropWidth * mCropHeight);
+        memcpy(dst_u, src_u, mCropWidth * mCropHeight / 2);
+
+#endif
     } else {
         CHECK_EQ(mColorFormat, OMX_TI_COLOR_FormatYUV420PackedSemiPlanar);
 
