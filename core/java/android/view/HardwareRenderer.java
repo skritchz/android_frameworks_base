@@ -144,6 +144,9 @@ public abstract class HardwareRenderer {
      *         false otherwise
      */
     public static boolean isAvailable() {
+		if (SystemProperties.get("ro.config.disable_hw_accel").equals("true")) {
+            return false;
+		}
         return GLES20Canvas.isAvailable();
     }
 
